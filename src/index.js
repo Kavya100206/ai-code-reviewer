@@ -9,6 +9,7 @@
 
 import dotenv from 'dotenv';
 import express from 'express';
+import webhookRoutes from './routes/webhook.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -16,29 +17,43 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Mount webhook routes (has its own body parser)
+app.use('/webhook', webhookRoutes);
+
+// Middleware for other routes
 app.use(express.json()); // Parse JSON request bodies
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'AI Code Review Bot is running',
-    timestamp: new Date().toISOString()
-  });
+    res.json({
+        status: 'ok',
+        message: 'AI Code Review Bot is running',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Welcome to AI Code Review Bot',
-    version: '1.0.0'
-  });
+    res.json({
+        message: 'Welcome to AI Code Review Bot',
+        version: '1.0.0'
+    });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('❌ Error:', err.message);
+    console.error(err.stack);
+    res.status(500).json({
+        error: 'Internal server error',
+        message: err.message
+    });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(` Server running on port ${PORT}`);
-  console.log(` Health check: http://localhost:${PORT}/health`);
-  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(` Server running on port ${PORT}`);
+    console.log(` Health check: http://localhost:${PORT}/health`);
+    console.log(` Webhook endpoint: http://localhost:${PORT}/webhook/github`);
+    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
 });
