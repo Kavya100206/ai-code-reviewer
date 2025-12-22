@@ -14,7 +14,6 @@ async function main() {
 
     if (success) {
         console.log('\n✅ SUCCESS: Database connection is working!');
-        console.log('You can now proceed with Task 2: Database Schema Design\n');
     } else {
         console.log('\n❌ FAILED: Could not connect to database');
         console.log('Please check:');

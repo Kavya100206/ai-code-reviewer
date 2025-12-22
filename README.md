@@ -1,5 +1,6 @@
 # 🤖 AI Code Review Bot
 
+
 An event-driven, production-grade backend system that automatically reviews GitHub pull requests using AI.
 
 ## 🚀 Features
@@ -47,6 +48,10 @@ npm install
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your credentials
+
+# Set up database
+node database/migrate.js   # Create tables
+node database/seed.js      # Insert sample data (optional)
 
 # Run the application
 npm run dev

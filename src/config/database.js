@@ -22,7 +22,7 @@ const pool = new Pool({
     // Pool configuration
     max: 20,                    // Maximum number of connections
     idleTimeoutMillis: 30000,   // Close idle connections after 30 seconds
-    connectionTimeoutMillis: 2000, // Fail fast if can't connect
+    connectionTimeoutMillis: 10000, // 10 seconds - allows time for NeonDB to wake up
 });
 
 // Event listeners for debugging
