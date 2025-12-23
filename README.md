@@ -1,79 +1,410 @@
-# 🤖 AI Code Review Bot
+# AI Code Review Bot
 
+An automated code review system that analyzes GitHub pull requests using AI and provides intelligent feedback directly on the PR. Built with Node.js, this production-ready backend system uses event-driven architecture to process code reviews asynchronously.
 
-An event-driven, production-grade backend system that automatically reviews GitHub pull requests using AI.
+## Overview
 
-## 🚀 Features
+This application automatically reviews code changes in GitHub pull requests, identifying potential bugs, security vulnerabilities, performance issues, and code quality concerns. When a developer opens a pull request, the system:
 
-- **Automated PR Reviews**: AI-powered code analysis on every pull request
-- **Event-Driven Architecture**: Webhook-based automation with async job processing
-- **Smart Feedback**: Categorized reviews (bugs, security, performance, best practices)
-- **Production-Ready**: Error handling, logging, retry logic, and monitoring
+1. Receives a webhook event from GitHub
+2. Validates the request and enqueues a review job
+3. Fetches the PR code and changed files
+4. Analyzes the code using AI (Groq Llama 3.3)
+5. Posts detailed feedback as a comment on the GitHub PR
 
-## 🏗️ Architecture
+The entire process takes approximately 10-20 seconds from PR creation to review posting.
+
+## Features
+
+- **Automated PR Analysis**: Instant code review on every pull request
+- **AI-Powered Insights**: Identifies bugs, security issues, performance problems, and best practices
+- **Async Processing**: Non-blocking webhook response with background job processing
+- **Structured Feedback**: Categorized issues with severity levels and actionable suggestions
+- **Production Ready**: Comprehensive error handling, logging, retry logic, and health monitoring
+- **Secure**: HMAC signature verification for webhook security
+
+## Architecture
 
 ```
-GitHub PR Event → Webhook → Validate → Enqueue Job → Worker
-                                                        ↓
-                                              Fetch Code → AI Analysis
-                                                        ↓
-                                              Post Review to GitHub
+GitHub PR Event → Webhook Endpoint → Signature Verification → Save to PostgreSQL
+                                                                        ↓
+Developer Sees Review ← Post Comment ← Format Markdown ← Store Review ← Job Queue (Redis)
+                                                                        ↓
+                                                            Worker Process
+                                                                        ↓
+                                                            Fetch PR Code (GitHub API)
+                                                                        ↓
+                                                            AI Analysis (Groq)
 ```
 
-## 📋 Prerequisites
+The system uses an event-driven architecture with separate server and worker processes:
 
+- **Server Process**: Handles incoming webhooks, validates requests, and enqueues jobs
+- **Worker Process**: Processes jobs asynchronously, fetches code, runs AI analysis, and posts reviews
+- **Database**: PostgreSQL stores repositories, pull requests, review jobs, and review results
+- **Queue**: Redis-based job queue (BullMQ) manages async processing with retry logic
+
+## Tech Stack
+
+**Backend Framework**
 - Node.js v18+
-- NeonDB account (PostgreSQL)
+- Express.js (REST API server)
+
+**Database & Queue**
+- PostgreSQL (NeonDB for managed hosting)
+- Redis (Upstash for managed hosting)
+- BullMQ (job queue with retry logic)
+
+**AI & Integrations**
+- Groq API (Llama 3.3 70B model)
+- GitHub REST API (Octokit SDK)
+- GitHub App authentication
+
+**Infrastructure**
+- Winston (structured logging)
+- dotenv (environment management)
+- HMAC SHA-256 (webhook security)
+
+## Prerequisites
+
+Before setting up the project, ensure you have:
+
+- Node.js v18 or higher
+- npm or yarn package manager
 - GitHub account
-- OpenAI API key
+- NeonDB account (PostgreSQL hosting)
+- Upstash account (Redis hosting)
+- Groq API account (free tier available)
 
-## 🛠️ Tech Stack
+## Installation
 
-- **Backend**: Node.js + Express.js
-- **Database**: PostgreSQL (NeonDB)
-- **Queue**: BullMQ + Redis
-- **AI**: OpenAI GPT-4
-- **Integrations**: GitHub REST API + Webhooks
-
-## 📦 Installation
+### 1. Clone the Repository
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/yourusername/ai-code-reviewer.git
 cd ai-code-reviewer
+```
 
-# Install dependencies
+### 2. Install Dependencies
+
+```bash
 npm install
+```
 
-# Set up environment variables
+### 3. Set Up GitHub App
+
+Create a GitHub App for webhook integration:
+
+1. Go to GitHub Settings > Developer settings > GitHub Apps
+2. Click "New GitHub App"
+3. Configure the app:
+   - **Name**: AI Code Review Bot
+   - **Webhook URL**: Your server URL (will update after deployment)
+   - **Webhook Secret**: Generate a random secret
+   - **Permissions**:
+     - Pull requests: Read & Write
+     - Contents: Read-only
+     - Issues: Read & Write (for posting comments)
+   - **Subscribe to events**: Pull request
+4. Generate and download the private key (.pem file)
+5. Install the app on your repository
+6. Note down: App ID, Installation ID
+
+Detailed guide: See `docs/GITHUB-APP.md`
+
+### 4. Set Up NeonDB (PostgreSQL)
+
+1. Create a NeonDB account at https://neon.tech
+2. Create a new project
+3. Copy the connection string
+4. Run migrations to create tables:
+
+```bash
+node database/migrate.js
+```
+
+Detailed guide: See `docs/DATABASE.md`
+
+### 5. Set Up Upstash (Redis)
+
+1. Create an Upstash account at https://upstash.com
+2. Create a new Redis database
+3. Copy the connection details (URL, token)
+
+Detailed guide: See `docs/REDIS-SETUP.md`
+
+### 6. Get Groq API Key
+
+1. Sign up at https://console.groq.com
+2. Navigate to API Keys section
+3. Create a new API key
+4. Copy the key (starts with `gsk_`)
+
+### 7. Configure Environment Variables
+
+Copy the example environment file:
+
+```bash
 cp .env.example .env
-# Edit .env with your credentials
+```
 
-# Set up database
-node database/migrate.js   # Create tables
-node database/seed.js      # Insert sample data (optional)
+Edit `.env` and fill in all values:
 
-# Run the application
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Database (NeonDB PostgreSQL)
+DATABASE_URL=postgresql://user:password@host/database?sslmode=require
+
+# GitHub App Configuration
+GITHUB_APP_ID=your_app_id
+GITHUB_INSTALLATION_ID=your_installation_id
+GITHUB_WEBHOOK_SECRET=your_webhook_secret
+GITHUB_PRIVATE_KEY_PATH=./github-app-key.pem
+
+# Upstash Redis
+UPSTASH_REDIS_URL=your_redis_url
+UPSTASH_REDIS_TOKEN=your_redis_token
+
+# Groq AI
+GROQ_API_KEY=your_groq_api_key
+
+# Logging
+LOG_LEVEL=info
+```
+
+Place your GitHub App private key file in the project root and update the path in `.env`.
+
+## Running the Application
+
+The application requires two processes to run simultaneously:
+
+### Terminal 1: Start the Server
+
+```bash
 npm run dev
 ```
 
-## 📚 Documentation
+This starts the Express server on port 3000 (or your configured PORT). The server handles:
+- Webhook endpoints at `/webhook/github`
+- Health check at `/health`
+- Readiness check at `/ready`
 
-- [Setup Guide](docs/SETUP.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Database Schema](docs/DATABASE.md)
-- [API Documentation](docs/API.md)
-
-## 🧪 Testing
+### Terminal 2: Start the Worker
 
 ```bash
-npm test
+npm run worker
 ```
 
-## 📝 License
+This starts the background worker process that:
+- Polls the Redis queue for new jobs
+- Processes code review requests
+- Fetches PR data from GitHub
+- Runs AI analysis
+- Posts review comments
 
-MIT
+### Verify Setup
 
----
+Check that everything is running:
 
-**Built with ❤️ as a learning project**
+```bash
+# In another terminal
+node src/check-data.js    # Verify database connection
+node src/check-queue.js   # Verify Redis queue
+```
+
+Visit `http://localhost:3000/health` to see system status.
+
+## Deployment
+
+### Option 1: Local Testing with ngrok
+
+For testing with real GitHub webhooks on localhost:
+
+1. Install ngrok: https://ngrok.com/download
+2. Start ngrok:
+   ```bash
+   ngrok http 3000
+   ```
+3. Copy the public URL (e.g., `https://abc123.ngrok.io`)
+4. Update GitHub App webhook URL to: `https://abc123.ngrok.io/webhook/github`
+5. Start server and worker locally
+6. Open a PR to test
+
+### Option 2: Cloud Deployment
+
+Deploy to a cloud platform for production use:
+
+**Recommended Platforms:**
+- **Render**: Free tier available, easy setup
+- **Railway**: Free tier available, automatic deployments
+- **Fly.io**: Global deployment, generous free tier
+
+**Deployment Steps:**
+
+1. Push code to GitHub
+2. Create new service on platform
+3. Connect GitHub repository
+4. Set environment variables in platform dashboard
+5. Platform will detect `package.json` and build automatically
+6. Update GitHub App webhook URL to platform URL
+7. Start both web and worker processes
+
+**Process Configuration (for platforms like Render):**
+
+- Web Process: `npm run dev`
+- Worker Process: `npm run worker`
+
+Both processes must run simultaneously.
+
+## Project Structure
+
+```
+ai-code-reviewer/
+├── src/
+│   ├── config/              # Configuration modules
+│   │   ├── database.js      # PostgreSQL connection
+│   │   ├── github.js        # GitHub App authentication
+│   │   └── queue.js         # BullMQ queue setup
+│   ├── routes/              # Express routes
+│   │   ├── webhook.js       # GitHub webhook handler
+│   │   └── health.js        # Health check endpoints
+│   ├── services/            # Business logic
+│   │   └── ai-review.js     # AI code review service
+│   ├── utils/               # Utility functions
+│   │   ├── github-api.js    # GitHub API helpers
+│   │   ├── webhook.js       # Webhook security
+│   │   ├── format-review.js # Markdown formatter
+│   │   └── logger.js        # Winston logger
+│   ├── index.js             # Server entry point
+│   ├── worker.js            # Background worker
+│   ├── check-data.js        # Database utility
+│   └── check-queue.js       # Queue utility
+├── database/
+│   ├── schema.sql           # Database schema
+│   ├── migrate.js           # Migration script
+│   └── seed.sql             # Sample data (optional)
+├── docs/                    # Documentation
+│   ├── DATABASE.md          # Database setup guide
+│   ├── GITHUB-APP.md        # GitHub App configuration
+│   ├── REDIS-SETUP.md       # Redis setup guide
+│   └── SETUP.md             # Detailed setup instructions
+├── logs/                    # Application logs (gitignored)
+├── .env                     # Environment variables (gitignored)
+├── .env.example             # Environment template
+└── package.json             # Dependencies and scripts
+```
+
+## API Endpoints
+
+### Webhook Endpoint
+
+**POST** `/webhook/github`
+- Receives GitHub pull request events
+- Validates HMAC signature
+- Enqueues review jobs
+- Returns 200 OK within 1 second
+
+### Health Endpoints
+
+**GET** `/health`
+- Returns overall system health status
+- Checks database connectivity
+- Response: `{ status: "ok", timestamp: "...", services: {...} }`
+
+**GET** `/ready`
+- Readiness check for deployment platforms
+- Response: `{ ready: true }`
+
+## Environment Variables Reference
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PORT` | Server port | `3000` |
+| `NODE_ENV` | Environment | `production` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://...` |
+| `GITHUB_APP_ID` | GitHub App ID | `123456` |
+| `GITHUB_INSTALLATION_ID` | Installation ID | `789012` |
+| `GITHUB_WEBHOOK_SECRET` | Webhook secret | `your_secret` |
+| `GITHUB_PRIVATE_KEY_PATH` | Path to .pem file | `./key.pem` |
+| `UPSTASH_REDIS_URL` | Redis URL | `https://...` |
+| `UPSTASH_REDIS_TOKEN` | Redis token | `your_token` |
+| `GROQ_API_KEY` | Groq API key | `gsk_...` |
+| `LOG_LEVEL` | Logging level | `info` |
+
+## Monitoring
+
+The application provides several monitoring capabilities:
+
+**Logging**
+- Console output with colored formatting
+- File-based logging in `logs/` directory
+  - `logs/error.log` - Error level logs
+  - `logs/combined.log` - All logs
+- Automatic log rotation (5MB max size, 5 files retained)
+
+**Health Checks**
+- `/health` endpoint for service monitoring
+- Database connectivity checks
+- Queue status verification
+
+**Job Tracking**
+- All jobs tracked in `review_jobs` table
+- Status: pending, processing, completed, failed
+- Retry attempts logged
+- Completion timestamps
+
+## Troubleshooting
+
+**Server won't start**
+- Check if port 3000 is already in use
+- Verify all environment variables are set
+- Check database connection with `node src/check-data.js`
+
+**Worker not processing jobs**
+- Verify Redis connection with `node src/check-queue.js`
+- Check worker logs for errors
+- Ensure `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN` are correct
+
+**Webhook not receiving events**
+- Verify GitHub App is installed on repository
+- Check webhook URL is publicly accessible
+- Verify `GITHUB_WEBHOOK_SECRET` matches GitHub App settings
+- Check server logs for signature verification errors
+
+**AI review not posting**
+- Verify `GROQ_API_KEY` is valid
+- Check GitHub App has "Issues: Read & Write" permission
+- Review worker logs for API errors
+
+## Documentation
+
+For detailed setup and configuration guides:
+
+- [Database Setup](docs/DATABASE.md) - PostgreSQL schema and migrations
+- [GitHub App Configuration](docs/GITHUB-APP.md) - Creating and configuring GitHub App
+- [Redis Setup](docs/REDIS-SETUP.md) - Upstash Redis configuration
+- [Project Setup](docs/SETUP.md) - Complete setup walkthrough
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Check existing documentation in `docs/` folder
+- Review troubleshooting section above

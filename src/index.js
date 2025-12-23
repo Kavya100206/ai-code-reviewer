@@ -10,6 +10,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import webhookRoutes from './routes/webhook.js';
+import healthRoutes from './routes/health.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -23,14 +24,8 @@ app.use('/webhook', webhookRoutes);
 // Middleware for other routes
 app.use(express.json()); // Parse JSON request bodies
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        message: 'AI Code Review Bot is running',
-        timestamp: new Date().toISOString()
-    });
-});
+// Mount health check routes
+app.use('/', healthRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

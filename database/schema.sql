@@ -119,7 +119,10 @@ CREATE TABLE review_jobs (
   CONSTRAINT fk_pr_job
     FOREIGN KEY (pr_id)
     REFERENCES pull_requests(id)
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
+    
+  CONSTRAINT unique_pr_job
+    UNIQUE (pr_id)
 );
 
 -- Trigger to auto-update updated_at

@@ -8,6 +8,9 @@ yarn.lock
 .env.local
 .env.*.local
 
+# GitHub App private keys
+*.pem
+
 # Logs
 logs/
 *.log

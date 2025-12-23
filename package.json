@@ -1,30 +1,38 @@
 {
-  "name": "ai-code-reviewer",
-  "version": "1.0.0",
-  "description": "AI-powered GitHub PR review bot with event-driven architecture",
-  "main": "src/index.js",
-  "type": "module",
-  "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [
-    "github",
-    "webhook",
-    "ai",
-    "code-review",
-    "automation"
-  ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "express": "^4.18.2",
-    "pg": "^8.11.3",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {},
-  "engines": {
-    "node": ">=18.0.0"
-  }
+    "name": "ai-code-reviewer",
+    "version": "1.0.0",
+    "description": "AI-powered GitHub PR review bot with event-driven architecture",
+    "main": "src/index.js",
+    "type": "module",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "node --watch src/index.js",
+        "worker": "node src/worker.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "github",
+        "webhook",
+        "ai",
+        "code-review",
+        "automation"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@google/genai": "^1.34.0",
+        "@octokit/app": "^16.1.2",
+        "@octokit/rest": "^22.0.1",
+        "@upstash/redis": "^1.35.8",
+        "bullmq": "^5.66.2",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "groq-sdk": "^0.37.0",
+        "ioredis": "^5.8.2",
+        "pg": "^8.11.3",
+        "winston": "^3.19.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
 }

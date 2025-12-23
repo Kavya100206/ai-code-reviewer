@@ -5,6 +5,7 @@
 
 import express from 'express';
 import { verifyGitHubSignature, getGitHubEvent, getDeliveryId } from '../utils/webhook.js';
+import pool from '../config/database.js';
 
 const router = express.Router();
 
@@ -62,9 +63,71 @@ router.post('/github', express.json({
 
     console.log('Event is relevant for review');
 
+    // Step 5: Save to database and enqueue job
+    try {
+        // Extract owner from full_name (e.g., "owner/repo" -> "owner")
+        const [owner, repoName] = repository.full_name.split('/');
 
+        // Insert or update repository
+        const repoResult = await pool.query(
+            `INSERT INTO repositories (github_repo_id, name, owner, installation_id)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (github_repo_id) 
+             DO UPDATE SET updated_at = NOW()
+             RETURNING id`,
+            [
+                repository.id,
+                repoName,
+                owner,
+                req.body.installation?.id || 0  // Use 0 for test data
+            ]
+        );
+        const repoId = repoResult.rows[0].id;
 
-    // Respond quickly (GitHub expects response within 10 seconds)
+        // Insert or update pull request
+        const prResult = await pool.query(
+            `INSERT INTO pull_requests (repo_id, pr_number, title, author, status)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (repo_id, pr_number) 
+             DO UPDATE SET 
+                title = EXCLUDED.title,
+                status = EXCLUDED.status,
+                updated_at = NOW()
+             RETURNING id`,
+            [
+                repoId,
+                pull_request.number,
+                pull_request.title,
+                pull_request.user.login,
+                pull_request.state
+            ]
+        );
+        const prId = prResult.rows[0].id;
+
+        // Create review job record
+        await pool.query(
+            `INSERT INTO review_jobs (pr_id, status, attempts)
+             VALUES ($1, 'pending', 0)
+             ON CONFLICT (pr_id)
+             DO UPDATE SET status = 'pending', updated_at = NOW()`,
+            [prId]
+        );
+
+        // Enqueue job for background processing
+        const { enqueueReview } = await import('../config/queue.js');
+        await enqueueReview({
+            prId,
+            repoId,
+            prNumber: pull_request.number,
+            repoFullName: repository.full_name
+        });
+
+        console.log('✅ PR saved to database and job enqueued');
+
+    } catch (error) {
+        console.error('❌ Error saving to database:', error.message);
+        return res.status(500).json({ error: 'Failed to process webhook' });
+    }
     res.status(200).json({
         message: 'Webhook received',
         deliveryId,
@@ -72,7 +135,6 @@ router.post('/github', express.json({
         prNumber: pull_request.number
     });
 
-    // In Task 5, we'll add job queue here to process asynchronously
 });
 
 // Health check for webhook endpoint
