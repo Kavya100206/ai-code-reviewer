@@ -10,12 +10,32 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
+ * Get private key from environment variable or file
+ * Supports both local development (file) and cloud deployment (env var)
+ */
+function getPrivateKey() {
+    // First, try to read from environment variable (for Render/cloud deployment)
+    if (process.env.GITHUB_PRIVATE_KEY) {
+        console.log('Using GITHUB_PRIVATE_KEY from environment variable');
+        return process.env.GITHUB_PRIVATE_KEY;
+    }
+
+    // Fallback to file (for local development)
+    if (process.env.GITHUB_PRIVATE_KEY_PATH) {
+        console.log('Reading private key from file:', process.env.GITHUB_PRIVATE_KEY_PATH);
+        return fs.readFileSync(process.env.GITHUB_PRIVATE_KEY_PATH, 'utf8');
+    }
+
+    throw new Error('GITHUB_PRIVATE_KEY or GITHUB_PRIVATE_KEY_PATH must be set');
+}
+
+/**
  * Create GitHub App instance
  * This handles JWT creation and token management
  */
 const app = new App({
     appId: process.env.GITHUB_APP_ID,
-    privateKey: fs.readFileSync(process.env.GITHUB_PRIVATE_KEY_PATH, 'utf8'),
+    privateKey: getPrivateKey(),
 });
 
 /**
