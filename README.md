@@ -217,48 +217,6 @@ node src/check-queue.js   # Verify Redis queue
 
 Visit `http://localhost:3000/health` to see system status.
 
-## Deployment
-
-### Option 1: Local Testing with ngrok
-
-For testing with real GitHub webhooks on localhost:
-
-1. Install ngrok: https://ngrok.com/download
-2. Start ngrok:
-   ```bash
-   ngrok http 3000
-   ```
-3. Copy the public URL (e.g., `https://abc123.ngrok.io`)
-4. Update GitHub App webhook URL to: `https://abc123.ngrok.io/webhook/github`
-5. Start server and worker locally
-6. Open a PR to test
-
-### Option 2: Cloud Deployment
-
-Deploy to a cloud platform for production use:
-
-**Recommended Platforms:**
-- **Render**: Free tier available, easy setup
-- **Railway**: Free tier available, automatic deployments
-- **Fly.io**: Global deployment, generous free tier
-
-**Deployment Steps:**
-
-1. Push code to GitHub
-2. Create new service on platform
-3. Connect GitHub repository
-4. Set environment variables in platform dashboard
-5. Platform will detect `package.json` and build automatically
-6. Update GitHub App webhook URL to platform URL
-7. Start both web and worker processes
-
-**Process Configuration (for platforms like Render):**
-
-- Web Process: `npm run dev`
-- Worker Process: `npm run worker`
-
-Both processes must run simultaneously.
-
 ## Project Structure
 
 ```
@@ -318,22 +276,6 @@ ai-code-reviewer/
 - Readiness check for deployment platforms
 - Response: `{ ready: true }`
 
-## Environment Variables Reference
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `PORT` | Server port | `3000` |
-| `NODE_ENV` | Environment | `production` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://...` |
-| `GITHUB_APP_ID` | GitHub App ID | `123456` |
-| `GITHUB_INSTALLATION_ID` | Installation ID | `789012` |
-| `GITHUB_WEBHOOK_SECRET` | Webhook secret | `your_secret` |
-| `GITHUB_PRIVATE_KEY_PATH` | Path to .pem file | `./key.pem` |
-| `UPSTASH_REDIS_URL` | Redis URL | `https://...` |
-| `UPSTASH_REDIS_TOKEN` | Redis token | `your_token` |
-| `GROQ_API_KEY` | Groq API key | `gsk_...` |
-| `LOG_LEVEL` | Logging level | `info` |
-
 ## Monitoring
 
 The application provides several monitoring capabilities:
@@ -356,29 +298,6 @@ The application provides several monitoring capabilities:
 - Retry attempts logged
 - Completion timestamps
 
-## Troubleshooting
-
-**Server won't start**
-- Check if port 3000 is already in use
-- Verify all environment variables are set
-- Check database connection with `node src/check-data.js`
-
-**Worker not processing jobs**
-- Verify Redis connection with `node src/check-queue.js`
-- Check worker logs for errors
-- Ensure `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN` are correct
-
-**Webhook not receiving events**
-- Verify GitHub App is installed on repository
-- Check webhook URL is publicly accessible
-- Verify `GITHUB_WEBHOOK_SECRET` matches GitHub App settings
-- Check server logs for signature verification errors
-
-**AI review not posting**
-- Verify `GROQ_API_KEY` is valid
-- Check GitHub App has "Issues: Read & Write" permission
-- Review worker logs for API errors
-
 ## Documentation
 
 For detailed setup and configuration guides:
@@ -388,23 +307,3 @@ For detailed setup and configuration guides:
 - [Redis Setup](docs/REDIS-SETUP.md) - Upstash Redis configuration
 - [Project Setup](docs/SETUP.md) - Complete setup walkthrough
 
-## License
-
-MIT License - See LICENSE file for details
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check existing documentation in `docs/` folder
-- Review troubleshooting section above
