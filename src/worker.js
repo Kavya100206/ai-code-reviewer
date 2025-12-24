@@ -140,9 +140,11 @@ async function processReviewJob(job) {
 const worker = new Worker(
     'pr-reviews',
     async (job) => {
+        console.log('🔔 Worker received job:', job.id, 'Type:', job.name);
         if (job.name === JOB_TYPES.REVIEW_PR) {
             return await processReviewJob(job);
         }
+        console.error('❌ Unknown job type:', job.name, 'Expected:', JOB_TYPES.REVIEW_PR);
         throw new Error(`Unknown job type: ${job.name}`);
     },
     {
@@ -153,7 +155,7 @@ const worker = new Worker(
 
 // Worker event handlers
 worker.on('completed', (job) => {
-    console.log(`Worker completed job ${job.id}`);
+    console.log(`✅ Worker completed job ${job.id}`);
 });
 
 worker.on('failed', (job, error) => {
