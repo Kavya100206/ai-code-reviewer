@@ -4,44 +4,19 @@
  */
 
 import { Worker } from 'bullmq';
-import IORedis from 'ioredis';
 import dotenv from 'dotenv';
 import pool from './config/database.js';
-import { JOB_TYPES } from './config/queue.js';
+import { JOB_TYPES, getQueueConnection } from './config/queue.js';
 import { fetchPRData, postReviewComment } from './utils/github-api.js';
 import { reviewCodeWithAI } from './services/ai-review.js';
 import { formatReviewComment } from './utils/format-review.js';
 
 dotenv.config();
 
-// Parse Upstash Redis URL (remove https://)
-const redisUrl = process.env.REDIS_URL?.replace('https://', '');
-const redisToken = process.env.REDIS_TOKEN;
+// Use the same Redis connection as the queue
+const connection = getQueueConnection();
 
-// Create Redis connection for worker
-const connection = new IORedis({
-    host: redisUrl,
-    port: 6379,
-    username: 'default',
-    password: redisToken,
-    tls: {
-        rejectUnauthorized: false,
-    },
-    maxRetriesPerRequest: null, // Required for BullMQ
-});
-
-// Add connection event listeners for debugging
-connection.on('connect', () => {
-    console.log('✅ Worker Redis connected');
-});
-
-connection.on('error', (err) => {
-    console.error('❌ Worker Redis error:', err.message);
-});
-
-connection.on('ready', () => {
-    console.log('✅ Worker Redis ready');
-});
+console.log('✅ Worker using shared Redis connection');
 
 
 

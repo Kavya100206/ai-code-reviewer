@@ -89,4 +89,13 @@ export async function getQueueStats() {
     return { waiting, active, completed, failed };
 }
 
+/**
+ * Get the shared Redis connection
+ * This ensures worker and queue use the same connection
+ * @returns {IORedis} Redis connection instance
+ */
+export function getQueueConnection() {
+    return connection;
+}
+
 export default reviewQueue;
