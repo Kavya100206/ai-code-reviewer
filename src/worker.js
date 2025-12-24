@@ -76,9 +76,19 @@ async function processReviewJob(job) {
         // Step 6: Post review to GitHub PR
         console.log('Posting review to GitHub PR...');
         console.log('DEBUG - aiReview structure:', JSON.stringify(aiReview, null, 2));
-        const commentMarkdown = formatReviewComment(aiReview, prData);
-        await postReviewComment(owner, repo, prNumber, commentMarkdown);
-        console.log('Review posted to GitHub successfully!');
+
+        try {
+            const commentMarkdown = formatReviewComment(aiReview, prData);
+            console.log('✅ Comment formatted successfully');
+            console.log('DEBUG - Comment length:', commentMarkdown.length);
+
+            await postReviewComment(owner, repo, prNumber, commentMarkdown);
+            console.log('✅ Review posted to GitHub successfully!');
+        } catch (formatError) {
+            console.error('❌ Error during formatting/posting:', formatError);
+            console.error('Stack trace:', formatError.stack);
+            throw formatError;
+        }
 
         // Step 7: Update job status to 'completed' in database
         await pool.query(
