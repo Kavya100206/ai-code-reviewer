@@ -165,14 +165,12 @@ GITHUB_WEBHOOK_SECRET=your_webhook_secret
 GITHUB_PRIVATE_KEY_PATH=./github-app-key.pem
 
 # Upstash Redis
-UPSTASH_REDIS_URL=your_redis_url
-UPSTASH_REDIS_TOKEN=your_redis_token
+REDIS_URL=your_redis_url
+REDIS_TOKEN=your_redis_token
 
 # Groq AI
 GROQ_API_KEY=your_groq_api_key
 
-# Logging
-LOG_LEVEL=info
 ```
 
 Place your GitHub App private key file in the project root and update the path in `.env`.
