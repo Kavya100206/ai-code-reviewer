@@ -1,6 +1,16 @@
 # AI Code Review Bot
 
-An automated code review system that analyzes GitHub pull requests using AI and provides intelligent feedback directly on the PR. Built with Node.js, this production-ready backend system uses event-driven architecture to process code reviews asynchronously.
+## Live Deployment
+
+This is a **backend-only service** (no frontend UI).
+
+Base URL (Render):  
+https://ai-code-reviewer-gh0e.onrender.com/
+
+Health Check:  
+GET /health  
+
+An automated backend system that analyzes GitHub pull requests using AI and posts intelligent, structured feedback directly on the PR. Built with Node.js, this production-ready service uses an event-driven architecture with asynchronous job processing.
 
 ## Overview
 
