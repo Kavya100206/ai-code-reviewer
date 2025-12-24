@@ -159,7 +159,7 @@ export async function postReviewComment(owner, repo, prNumber, commentBody) {
         const octokit = await getGitHubClient();
 
         // Post comment using issues API (PRs are issues in GitHub)
-        const response = await octokit.rest.issues.createComment({
+        const response = await octokit.issues.createComment({
             owner,
             repo,
             issue_number: prNumber,
