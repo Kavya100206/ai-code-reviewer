@@ -30,6 +30,20 @@ const connection = new IORedis({
     maxRetriesPerRequest: null, // Required for BullMQ
 });
 
+// Add connection event listeners for debugging
+connection.on('connect', () => {
+    console.log('✅ Worker Redis connected');
+});
+
+connection.on('error', (err) => {
+    console.error('❌ Worker Redis error:', err.message);
+});
+
+connection.on('ready', () => {
+    console.log('✅ Worker Redis ready');
+});
+
+
 
 async function processReviewJob(job) {
     const { prId, repoId, prNumber, repoFullName } = job.data;
