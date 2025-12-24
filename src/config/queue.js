@@ -23,6 +23,32 @@ const connection = new IORedis({
         rejectUnauthorized: false,
     },
     maxRetriesPerRequest: null, // Required for BullMQ
+    enableReadyCheck: true,
+    retryStrategy: (times) => {
+        console.log(`Redis connection retry attempt ${times}`);
+        return Math.min(times * 50, 2000);
+    }
+});
+
+// Add connection event listeners
+connection.on('connect', () => {
+    console.log('✅ Queue Redis connected to:', redisUrl);
+});
+
+connection.on('ready', () => {
+    console.log('✅ Queue Redis ready for commands');
+});
+
+connection.on('error', (err) => {
+    console.error('❌ Queue Redis error:', err.message);
+});
+
+connection.on('close', () => {
+    console.log('⚠️ Queue Redis connection closed');
+});
+
+connection.on('reconnecting', () => {
+    console.log('🔄 Queue Redis reconnecting...');
 });
 
 /**
@@ -64,12 +90,21 @@ export const JOB_TYPES = {
  * @returns {Promise<Job>} The created job
  */
 export async function enqueueReview(data) {
+    console.log('📤 Enqueueing job to queue: pr-reviews');
+    console.log('   Job data:', JSON.stringify(data, null, 2));
+
     const job = await reviewQueue.add(JOB_TYPES.REVIEW_PR, data, {
         jobId: `pr-${data.repoId}-${data.prNumber}`,  // Unique ID prevents duplicates
     });
 
-    console.log(`Job enqueued: ${job.id}`);
-    console.log(`PR #${data.prNumber} from ${data.repoFullName}`);
+    console.log(`✅ Job enqueued: ${job.id}`);
+    console.log(`   Job name: ${job.name}`);
+    console.log(`   Queue name: ${reviewQueue.name}`);
+    console.log(`   PR #${data.prNumber} from ${data.repoFullName}`);
+
+    // Check queue stats
+    const stats = await getQueueStats();
+    console.log(`   Queue stats - Waiting: ${stats.waiting}, Active: ${stats.active}`);
 
     return job;
 }
