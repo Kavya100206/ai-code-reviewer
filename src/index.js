@@ -5,6 +5,7 @@
  * - Environment configuration
  * - Database connection
  * - Express server
+ * - Background worker (in same process for free tier)
  */
 
 import dotenv from 'dotenv';
@@ -47,8 +48,16 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(` Server running on port ${PORT}`);
-    console.log(` Health check: http://localhost:${PORT}/health`);
-    console.log(` Webhook endpoint: http://localhost:${PORT}/webhook/github`);
-    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/health`);
+    console.log(`   Webhook endpoint: http://localhost:${PORT}/webhook/github`);
+    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Start worker in the same process (for free tier deployment)
+console.log('🔄 Starting background worker in same process...');
+import('./worker.js').then(() => {
+    console.log('✅ Worker module loaded');
+}).catch(err => {
+    console.error('❌ Failed to load worker:', err.message);
 });
