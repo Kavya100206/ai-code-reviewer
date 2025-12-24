@@ -75,10 +75,10 @@ async function processReviewJob(job) {
         // Step 5: Store review in database
         console.log('💾 Storing review in database...');
         const reviewResult = await pool.query(
-            `INSERT INTO reviews (pr_id, summary, issues_count, created_at)
-             VALUES ($1, $2, $3, NOW())
+            `INSERT INTO reviews (pr_id, review_content, ai_model, created_at)
+             VALUES ($1, $2, $3, NOW  ())
              RETURNING id`,
-            [prId, aiReview.summary, aiReview.issues?.length || 0]
+            [prId, JSON.stringify(aiReview), 'groq-llama-3.3-70b']
         );
 
         const reviewId = reviewResult.rows[0].id;
