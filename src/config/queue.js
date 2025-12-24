@@ -93,9 +93,7 @@ export async function enqueueReview(data) {
     console.log('📤 Enqueueing job to queue: pr-reviews');
     console.log('   Job data:', JSON.stringify(data, null, 2));
 
-    const job = await reviewQueue.add(JOB_TYPES.REVIEW_PR, data, {
-        jobId: `pr-${data.repoId}-${data.prNumber}`,  // Unique ID prevents duplicates
-    });
+    const job = await reviewQueue.add(JOB_TYPES.REVIEW_PR, data);
 
     console.log(`✅ Job enqueued: ${job.id}`);
     console.log(`   Job name: ${job.name}`);
