@@ -75,6 +75,7 @@ async function processReviewJob(job) {
 
         // Step 6: Post review to GitHub PR
         console.log('Posting review to GitHub PR...');
+        console.log('DEBUG - aiReview structure:', JSON.stringify(aiReview, null, 2));
         const commentMarkdown = formatReviewComment(aiReview, prData);
         await postReviewComment(owner, repo, prNumber, commentMarkdown);
         console.log('Review posted to GitHub successfully!');
