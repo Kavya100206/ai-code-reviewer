@@ -158,15 +158,18 @@ export async function postReviewComment(owner, repo, prNumber, commentBody) {
     try {
         const octokit = await getGitHubClient();
 
-        // Post comment using issues API (PRs are issues in GitHub)
-        const response = await octokit.issues.createComment({
+        // Post comment using GitHub REST API (low-level request method)
+        const response = await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
             owner,
             repo,
             issue_number: prNumber,
-            body: commentBody
+            body: commentBody,
+            headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+            }
         });
 
-        console.log(`Comment posted successfully!`);
+        console.log(`✅ Comment posted successfully!`);
         console.log(`   Comment ID: ${response.data.id}`);
         console.log(`   URL: ${response.data.html_url}`);
 
