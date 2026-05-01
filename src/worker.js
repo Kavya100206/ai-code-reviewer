@@ -20,6 +20,69 @@ console.log('✅ Worker using shared Redis connection');
 
 
 
+/**
+ * Insert structured findings for a review.
+ *
+ * Failures here are caught and logged — they must never propagate, because
+ * the PR comment downstream takes priority over our analytics table.
+ *
+ * Severity from the AI ('critical' is allowed by the existing prompt) is
+ * stored as-is; the dashboard's high-severity counts only match 'high', so
+ * 'critical' rows are still grouped/visible under their own bucket in
+ * issue-patterns and severity-trend.
+ */
+async function persistFindings({ reviewJobId, repoId, prNumber, aiReview }) {
+    if (!reviewJobId) {
+        console.warn('Skipping findings insert: no review_jobs.id resolved for pr_id');
+        return;
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        if (aiReview._isStructured === false) {
+            await client.query(
+                `INSERT INTO review_findings
+                 (review_job_id, repo_id, pr_number,
+                  file_path, line_number, issue_type, severity, description,
+                  is_structured, raw_fallback)
+                 VALUES ($1, $2, $3, NULL, NULL, NULL, NULL, NULL, FALSE, $4)`,
+                [reviewJobId, repoId, prNumber, aiReview.raw_response ?? null]
+            );
+        } else {
+            const issues = Array.isArray(aiReview.issues) ? aiReview.issues : [];
+            for (const issue of issues) {
+                await client.query(
+                    `INSERT INTO review_findings
+                     (review_job_id, repo_id, pr_number,
+                      file_path, line_number, issue_type, severity, description,
+                      is_structured)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)`,
+                    [
+                        reviewJobId,
+                        repoId,
+                        prNumber,
+                        issue.file ?? null,
+                        Number.isInteger(issue.line) ? issue.line : null,
+                        issue.type ?? null,
+                        issue.severity ?? null,
+                        issue.description ?? issue.title ?? null
+                    ]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        console.log('✅ Findings persisted to review_findings');
+    } catch (error) {
+        try { await client.query('ROLLBACK'); } catch (_) { /* ignore */ }
+        console.error('Failed to persist findings (continuing to post comment):', error.message);
+    } finally {
+        client.release();
+    }
+}
+
 async function processReviewJob(job) {
     const { prId, repoId, prNumber, repoFullName } = job.data;
 
@@ -30,12 +93,14 @@ async function processReviewJob(job) {
 
     try {
         // Step 1: Update job status to 'processing' in database
-        await pool.query(
-            `UPDATE review_jobs 
-       SET status = 'processing', updated_at = NOW() 
-       WHERE pr_id = $1`,
+        const jobUpdate = await pool.query(
+            `UPDATE review_jobs
+       SET status = 'processing', updated_at = NOW()
+       WHERE pr_id = $1
+       RETURNING id`,
             [prId]
         );
+        const reviewJobId = jobUpdate.rows[0]?.id ?? null;
 
         console.log('✅ Job status updated to processing');
 
@@ -72,6 +137,16 @@ async function processReviewJob(job) {
 
         const reviewId = reviewResult.rows[0].id;
         console.log(`Review stored with ID: ${reviewId}`);
+
+        // Step 5b: Persist structured findings.
+        // Wrapped in its own try/catch — a DB failure here must NEVER block
+        // the PR comment from being posted.
+        await persistFindings({
+            reviewJobId,
+            repoId,
+            prNumber,
+            aiReview
+        });
 
         // Step 6: Post review to GitHub PR
         console.log('Posting review to GitHub PR...');

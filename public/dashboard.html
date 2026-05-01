@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Code Review Insights</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #fff;
+    color: #222;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  /* Header */
+  .topbar {
+    height: 48px;
+    background: #1a1a2e;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-mark {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: #6c63ff;
+  }
+  .brand-name {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .last-updated {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+  }
+  #refresh {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  #refresh:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Layout */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    background: #e0e0e0;
+    min-height: calc(100vh - 48px);
+  }
+
+  /* Panels */
+  .panel {
+    background: #fff;
+    padding: 20px 24px 20px 20px;
+    border-left: 3px solid transparent;
+  }
+  .panel-risky    { border-left: 3px solid #e74c3c; }
+  .panel-patterns { border-left: 3px solid #6c63ff; }
+  .panel-trend    { border-left: 3px solid #f39c12; }
+  .panel-prs      { border-left: 3px solid #1abc9c; }
+
+  .panel-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #555;
+    margin: 0 0 0 10px;
+  }
+
+  /* Summary row */
+  .summary {
+    margin: 12px 0 16px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .summary-num {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1a1a2e;
+    line-height: 1;
+  }
+  .summary-label {
+    font-size: 12px;
+    color: #999;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #aaa;
+    font-weight: 400;
+    padding: 0 8px 8px 0;
+    border-bottom: 1px solid #ebebeb;
+    text-align: left;
+  }
+  tbody td {
+    padding: 8px 8px 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #f5f5f5;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  /* Severity — text color only */
+  .sev-critical,
+  .sev-high   { color: #c0392b; }
+  .sev-medium { color: #d07000; }
+  .sev-low    { color: #27ae60; }
+
+  /* File paths */
+  code {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: #555;
+  }
+
+  /* Counts */
+  .num {
+    font-weight: 600;
+    color: #1a1a2e;
+  }
+
+  /* Empty / error */
+  .empty {
+    font-size: 13px;
+    color: #bbb;
+    margin-top: 8px;
+  }
+
+  /* Footer */
+  footer {
+    height: 36px;
+    background: #1a1a2e;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">Code Review Insights</span>
+  </div>
+  <div class="meta">
+    <span class="last-updated">Last updated: <span id="last-updated">—</span></span>
+    <button id="refresh">Refresh</button>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="panel panel-risky">
+    <h2 class="panel-title">Risky Files</h2>
+    <div class="summary">
+      <span class="summary-num" id="risky-files-summary">0</span>
+      <span class="summary-label">files tracked</span>
+    </div>
+    <div id="risky-files"></div>
+  </section>
+
+  <section class="panel panel-patterns">
+    <h2 class="panel-title">Issue Patterns</h2>
+    <div class="summary">
+      <span class="summary-num" id="issue-patterns-summary">0</span>
+      <span class="summary-label">issues found</span>
+    </div>
+    <div id="issue-patterns"></div>
+  </section>
+
+  <section class="panel panel-trend">
+    <h2 class="panel-title">Severity Trend</h2>
+    <div class="summary">
+      <span class="summary-num" id="severity-trend-summary">0</span>
+      <span class="summary-label">days tracked</span>
+    </div>
+    <div id="severity-trend"></div>
+  </section>
+
+  <section class="panel panel-prs">
+    <h2 class="panel-title">Most Flagged PRs</h2>
+    <div class="summary">
+      <span class="summary-num" id="author-patterns-summary">0</span>
+      <span class="summary-label">PRs reviewed</span>
+    </div>
+    <div id="author-patterns"></div>
+  </section>
+</main>
+
+<footer>Code Review Insights — auto-refreshes every 5 minutes</footer>
+
+<script>
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function severityClass(sev) {
+  if (sev === 'critical') return 'sev-critical';
+  if (sev === 'high') return 'sev-high';
+  if (sev === 'medium') return 'sev-medium';
+  if (sev === 'low') return 'sev-low';
+  return '';
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function emptyState() {
+  return '<div class="empty">No data yet.</div>';
+}
+
+function errorState(msg) {
+  return '<div class="empty">Error: ' + escapeHtml(msg) + '</div>';
+}
+
+async function loadRiskyFiles() {
+  const el = document.getElementById('risky-files');
+  try {
+    const rows = await fetchJson('/api/insights/risky-files');
+    document.getElementById('risky-files-summary').textContent = rows.length;
+    if (!rows.length) { el.innerHTML = emptyState(); return; }
+    let html = '<table><thead><tr><th>File</th><th class="num">Total</th><th class="num">High</th></tr></thead><tbody>';
+    for (const r of rows) {
+      html += '<tr><td><code>' + escapeHtml(r.file_path) + '</code></td>'
+            + '<td class="num">' + escapeHtml(r.total_issues) + '</td>'
+            + '<td class="num">' + escapeHtml(r.high_severity) + '</td></tr>';
+    }
+    el.innerHTML = html + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = errorState(e.message);
+  }
+}
+
+async function loadIssuePatterns() {
+  const el = document.getElementById('issue-patterns');
+  try {
+    const rows = await fetchJson('/api/insights/issue-patterns');
+    document.getElementById('issue-patterns-summary').textContent =
+      rows.reduce((s, r) => s + Number(r.count || 0), 0);
+    if (!rows.length) { el.innerHTML = emptyState(); return; }
+    let html = '<table><thead><tr><th>Type</th><th>Severity</th><th class="num">Count</th></tr></thead><tbody>';
+    for (const r of rows) {
+      html += '<tr><td>' + escapeHtml(r.issue_type) + '</td>'
+            + '<td class="' + severityClass(r.severity) + '">' + escapeHtml(r.severity) + '</td>'
+            + '<td class="num">' + escapeHtml(r.count) + '</td></tr>';
+    }
+    el.innerHTML = html + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = errorState(e.message);
+  }
+}
+
+async function loadSeverityTrend() {
+  const el = document.getElementById('severity-trend');
+  try {
+    const rows = await fetchJson('/api/insights/severity-trend');
+    document.getElementById('severity-trend-summary').textContent =
+      new Set(rows.map(r => r.day)).size;
+    if (!rows.length) { el.innerHTML = emptyState(); return; }
+    let html = '<table><thead><tr><th>Day</th><th>Severity</th><th class="num">Count</th></tr></thead><tbody>';
+    for (const r of rows) {
+      const day = r.day ? String(r.day).substring(0, 10) : '';
+      html += '<tr><td>' + escapeHtml(day) + '</td>'
+            + '<td class="' + severityClass(r.severity) + '">' + escapeHtml(r.severity) + '</td>'
+            + '<td class="num">' + escapeHtml(r.count) + '</td></tr>';
+    }
+    el.innerHTML = html + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = errorState(e.message);
+  }
+}
+
+async function loadAuthorPatterns() {
+  const el = document.getElementById('author-patterns');
+  try {
+    const rows = await fetchJson('/api/insights/author-patterns');
+    document.getElementById('author-patterns-summary').textContent = rows.length;
+    if (!rows.length) { el.innerHTML = emptyState(); return; }
+    let html = '<table><thead><tr><th>Repo</th><th class="num">PR</th><th class="num">Total</th><th class="num">High</th></tr></thead><tbody>';
+    for (const r of rows) {
+      const repo = (r.owner && r.name) ? r.owner + '/' + r.name : '—';
+      html += '<tr><td>' + escapeHtml(repo) + '</td>'
+            + '<td class="num">#' + escapeHtml(r.pr_number) + '</td>'
+            + '<td class="num">' + escapeHtml(r.total_issues) + '</td>'
+            + '<td class="num">' + escapeHtml(r.high_issues) + '</td></tr>';
+    }
+    el.innerHTML = html + '</tbody></table>';
+  } catch (e) {
+    el.innerHTML = errorState(e.message);
+  }
+}
+
+async function refresh() {
+  await Promise.all([
+    loadRiskyFiles(),
+    loadIssuePatterns(),
+    loadSeverityTrend(),
+    loadAuthorPatterns()
+  ]);
+  document.getElementById('last-updated').textContent = new Date().toLocaleString();
+}
+
+document.getElementById('refresh').addEventListener('click', refresh);
+refresh();
+setInterval(refresh, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>

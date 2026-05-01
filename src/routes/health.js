@@ -16,7 +16,8 @@ router.get('/health', async (req, res) => {
         status: 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        services: {}
+        services: {},
+        dashboard_url: '/dashboard.html'
     };
 
     // Check database

@@ -117,34 +117,39 @@ function buildReviewPrompt(pr, files) {
 
 /**
  * Parse AI response (handles JSON extraction)
+ *
+ * Returns the parsed review object augmented with `_isStructured`:
+ *   true  → JSON parsed cleanly, downstream can derive structured findings.
+ *   false → parse failed; `raw_response` carries the original text so the
+ *           comment can still be posted and a fallback row stored.
  */
 function parseAIResponse(aiResponse) {
     try {
-        // Try to extract JSON from response
-        // Sometimes AI adds extra text before/after JSON
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
 
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            const parsed = JSON.parse(jsonMatch[0]);
+            return { ...parsed, _isStructured: true };
         }
 
-        // If no JSON found, create a basic review
+        console.warn('AI response contained no JSON object; using raw fallback');
         return {
             summary: 'AI response could not be parsed',
             issues: [],
             positives: [],
-            raw_response: aiResponse
+            raw_response: aiResponse,
+            _isStructured: false
         };
 
     } catch (error) {
-        console.error('Failed to parse AI response:', error.message);
+        console.warn('Failed to parse AI response JSON:', error.message);
 
-        // Return raw response for debugging
         return {
             summary: 'Parse error',
             issues: [],
             positives: [],
-            raw_response: aiResponse
+            raw_response: aiResponse,
+            _isStructured: false
         };
     }
 }

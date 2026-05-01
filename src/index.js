@@ -10,11 +10,17 @@
 
 import dotenv from 'dotenv';
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import webhookRoutes from './routes/webhook.js';
 import healthRoutes from './routes/health.js';
+import insightsRoutes from './routes/insights.js';
 
 // Load environment variables from .env file
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,8 +31,14 @@ app.use('/webhook', webhookRoutes);
 // Middleware for other routes
 app.use(express.json()); // Parse JSON request bodies
 
+// Static dashboard assets (public/dashboard.html etc.)
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // Mount health check routes
 app.use('/', healthRoutes);
+
+// Mount insights API
+app.use('/api/insights', insightsRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
