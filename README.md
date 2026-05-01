@@ -1,8 +1,9 @@
 # AI Code Review Bot
 
-## Live Deployment
 
 This is a **backend service** with a built-in insights dashboard.
+
+Live URL : https://ai-code-reviewer-gh0e.onrender.com/dashboard.html
 
 Base URL (Render):  
 https://ai-code-reviewer-gh0e.onrender.com/
