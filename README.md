@@ -14,7 +14,7 @@ An automated backend system that analyzes GitHub pull requests using AI and post
 
 ## Overview
 
-This application automatically reviews code changes in GitHub pull requests, identifying potential bugs, security vulnerabilities, performance issues, and code quality concerns. When a developer opens a pull request, the system:
+This application automatically checks code changes in GitHub pull requests, identifying potential bugs, security vulnerabilities, performance issues, and code quality concerns. When a developer opens a pull request, the system:
 
 1. Receives a webhook event from GitHub
 2. Validates the request and enqueues a review job
