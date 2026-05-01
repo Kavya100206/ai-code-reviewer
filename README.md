@@ -2,7 +2,7 @@
 
 ## Live Deployment
 
-This is a **backend-only service** (no frontend UI).
+This is a **backend service** with a built-in insights dashboard.
 
 Base URL (Render):  
 https://ai-code-reviewer-gh0e.onrender.com/
@@ -30,6 +30,8 @@ The entire process takes approximately 10-20 seconds from PR creation to review 
 - **AI-Powered Insights**: Identifies bugs, security issues, performance problems, and best practices
 - **Async Processing**: Non-blocking webhook response with background job processing
 - **Structured Feedback**: Categorized issues with severity levels and actionable suggestions
+- **Queryable Findings**: Each AI-detected issue is also persisted as a row in `review_findings` (file, line, type, severity, description), so the data is queryable beyond the GitHub PR comment
+- **Insights Dashboard**: Built-in `/dashboard.html` with four panels — Risky Files, Issue Patterns, Severity Trend, and Most-Flagged PRs — backed by a small read-only `/api/insights/*` API
 - **Production Ready**: Comprehensive error handling, logging, retry logic, and health monitoring
 - **Secure**: HMAC signature verification for webhook security
 
@@ -45,20 +47,29 @@ Developer Sees Review ← Post Comment ← Format Markdown ← Store Review ← 
                                                             Fetch PR Code (GitHub API)
                                                                         ↓
                                                             AI Analysis (Groq)
+                                                                        ↓
+                                                            Parse JSON Findings
+                                                            (fallback: raw markdown)
+                                                                        ↓
+                                                            Persist to review_findings
+                                                            (one row per issue, transactional)
 ```
 
 The system uses an event-driven architecture with separate server and worker processes:
 
-- **Server Process**: Handles incoming webhooks, validates requests, and enqueues jobs
-- **Worker Process**: Processes jobs asynchronously, fetches code, runs AI analysis, and posts reviews
-- **Database**: PostgreSQL stores repositories, pull requests, review jobs, and review results
+- **Server Process**: Handles incoming webhooks, validates requests, enqueues jobs, serves the insights API, and serves the static dashboard
+- **Worker Process**: Processes jobs asynchronously, fetches code, runs AI analysis, persists structured findings, and posts reviews
+- **Database**: PostgreSQL stores repositories, pull requests, review jobs, full review payloads, and per-issue structured findings
 - **Queue**: Redis-based job queue (BullMQ) manages async processing with retry logic
+
+After AI analysis, the worker writes one row per detected issue to the `review_findings` table inside a transaction. If JSON parsing of the AI response fails, a single fallback row is written with `is_structured = FALSE` and the raw response preserved in `raw_fallback`. Persistence runs in its own try/catch — a database failure here will never block the PR comment from being posted.
 
 ## Tech Stack
 
 **Backend Framework**
 - Node.js v18+
 - Express.js (REST API server)
+- Winston (structured logging)
 
 **Database & Queue**
 - PostgreSQL (NeonDB for managed hosting)
@@ -71,7 +82,6 @@ The system uses an event-driven architecture with separate server and worker pro
 - GitHub App authentication
 
 **Infrastructure**
-- Winston (structured logging)
 - dotenv (environment management)
 - HMAC SHA-256 (webhook security)
 
@@ -130,8 +140,11 @@ Detailed guide: See `docs/GITHUB-APP.md`
 4. Run migrations to create tables:
 
 ```bash
-node database/migrate.js
+node database/migrate.js            # core schema
+node database/migrate-findings.js   # review_findings table for the dashboard
 ```
+
+The findings migration is idempotent (`CREATE TABLE IF NOT EXISTS`), so it's safe to re-run.
 
 Detailed guide: See `docs/DATABASE.md`
 
@@ -223,7 +236,7 @@ node src/check-data.js    # Verify database connection
 node src/check-queue.js   # Verify Redis queue
 ```
 
-Visit `http://localhost:3000/health` to see system status.
+Visit `http://localhost:3000/health` to see system status, and `http://localhost:3000/dashboard.html` for the insights dashboard (panels will read "No data yet." until at least one PR has been reviewed).
 
 ## Project Structure
 
@@ -236,7 +249,8 @@ ai-code-reviewer/
 │   │   └── queue.js         # BullMQ queue setup
 │   ├── routes/              # Express routes
 │   │   ├── webhook.js       # GitHub webhook handler
-│   │   └── health.js        # Health check endpoints
+│   │   ├── health.js        # Health check endpoints
+│   │   └── insights.js      # Read-only analytics API for the dashboard
 │   ├── services/            # Business logic
 │   │   └── ai-review.js     # AI code review service
 │   ├── utils/               # Utility functions
@@ -249,9 +263,12 @@ ai-code-reviewer/
 │   ├── check-data.js        # Database utility
 │   └── check-queue.js       # Queue utility
 ├── database/
-│   ├── schema.sql           # Database schema
-│   ├── migrate.js           # Migration script
+│   ├── schema.sql           # Database schema (core tables)
+│   ├── migrate.js           # Migration script (core schema)
+│   ├── migrate-findings.js  # Migration for review_findings table
 │   └── seed.sql             # Sample data (optional)
+├── public/
+│   └── dashboard.html       # Static insights dashboard (served by Express)
 ├── docs/                    # Documentation
 │   ├── DATABASE.md          # Database setup guide
 │   ├── GITHUB-APP.md        # GitHub App configuration
@@ -278,11 +295,39 @@ ai-code-reviewer/
 **GET** `/health`
 - Returns overall system health status
 - Checks database connectivity
-- Response: `{ status: "ok", timestamp: "...", services: {...} }`
+- Includes `dashboard_url: "/dashboard.html"` so the dashboard is discoverable from the health response
+- Response: `{ status: "ok", timestamp: "...", services: {...}, dashboard_url: "/dashboard.html" }`
 
 **GET** `/ready`
 - Readiness check for deployment platforms
 - Response: `{ ready: true }`
+
+### Insights API
+
+Read-only endpoints over `review_findings`. All queries filter `is_structured = TRUE`, so fallback rows from parse failures don't pollute aggregates.
+
+**GET** `/api/insights/risky-files`
+- Top 10 files by issue count, sorted by high-severity then total
+- Response: `[{ file_path, total_issues, high_severity }]`
+
+**GET** `/api/insights/issue-patterns`
+- Distribution of issues across `(issue_type, severity)`
+- Response: `[{ issue_type, severity, count }]`
+
+**GET** `/api/insights/severity-trend`
+- Last 30 days of findings grouped by day and severity
+- Response: `[{ day, severity, count }]`
+
+**GET** `/api/insights/author-patterns`
+- Top 10 most-flagged PRs (grouped by repo + PR number, joined to `repositories`)
+- Response: `[{ pr_number, owner, name, total_issues, high_issues }]`
+
+### Dashboard
+
+**GET** `/dashboard.html`
+- Single-page insights dashboard backed by the four endpoints above
+- Auto-refreshes every 5 minutes; manual Refresh button in the header
+- Vanilla JS / inline CSS, no frameworks, no build step
 
 ## Monitoring
 
